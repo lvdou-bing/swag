@@ -843,12 +843,14 @@ func parseObjectSchemaV3(parser *Parser, refType string, astFile *ast.File) (*sp
 
 // ParseResponseHeaderComment parses comment for given `response header` comment string.
 func (o *OperationV3) ParseResponseHeaderComment(commentLine string, _ *ast.File) error {
-	matches := responsePattern.FindStringSubmatch(commentLine)
-	if len(matches) != 5 {
+	matches := headerPattern.FindStringSubmatch(commentLine)
+	if len(matches) != 6 {
 		return fmt.Errorf("can not parse response comment \"%s\"", commentLine)
 	}
 
 	header := newHeaderSpecV3(strings.Trim(matches[2], "{}"), strings.Trim(matches[4], "\""))
+	// parse Attributes of the header
+	o.parseResponseHeaderAttribute(commentLine, "string", header)
 
 	headerKey := strings.TrimSpace(matches[3])
 
@@ -901,6 +903,53 @@ func newHeaderSpecV3(schemaType, description string) *spec.RefOrSpec[spec.Extend
 	result.Spec.Spec.Schema.Spec.Type = spec.NewSingleOrArray(schemaType)
 
 	return result
+}
+
+func (o *OperationV3) parseResponseHeaderAttribute(comment, schemaType string, header *spec.RefOrSpec[spec.Extendable[spec.Header]]) error {
+	if header == nil {
+		return fmt.Errorf("cannot parse empty parameter for comment: %s", comment)
+	}
+
+	schemaType = TransToValidSchemeType(schemaType)
+
+	for attrKey, re := range regexAttributes {
+		attr, err := findAttr(re, comment)
+		if err != nil {
+			continue
+		}
+
+		switch attrKey {
+		// case enumsTag:
+		// 	err = setEnumParamV3(param.Schema.Spec, attr, objectType, schemaType)
+		// case minimumTag, maximumTag:
+		// 	err = setNumberParamV3(param.Schema.Spec, attrKey, schemaType, attr, comment)
+		// case defaultTag:
+		// 	err = setDefaultV3(param.Schema.Spec, schemaType, attr)
+		// case minLengthTag, maxLengthTag:
+		// 	err = setStringParamV3(param.Schema.Spec, attrKey, schemaType, attr, comment)
+		// case formatTag:
+		// 	param.Schema.Spec.Format = attr
+		case exampleTag:
+			val, err := defineType(schemaType, attr)
+			if err != nil {
+				continue // Don't set a example value if it's not valid
+			}
+
+			header.Spec.Spec.Example = val
+			// case schemaExampleTag:
+			// 	err = setSchemaExampleV3(param.Schema.Spec, schemaType, attr)
+			// case extensionsTag:
+			// 	param.Schema.Spec.Extensions = setExtensionParam(attr)
+			// case collectionFormatTag:
+			// 	err = setCollectionFormatParamV3(param, attrKey, objectType, attr, comment)
+		}
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // ParseResponseComment parses comment for given `response` comment string.
