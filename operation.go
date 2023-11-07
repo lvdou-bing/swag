@@ -229,7 +229,18 @@ func (operation *Operation) ParseMetadata(attribute, lowerAttribute, lineRemaind
 	return nil
 }
 
-var paramPattern = regexp.MustCompile(`(\S+)\s+(\w+)\s+([\S. ]+?)\s+(\w+)\s+"([^"]+)"`)
+// target format: Parameters that separated by spaces. param name, param type, data type, is mandatory?, comment, attribute(optional)
+// \s+ : \s Matches a single white space character, including space, tab, form feed, line feed, and other Unicode spaces. 匹配一个或多个空白区域,用来分隔不同部分
+// (\S+) : \S matches a single character other than white space, x+ Matches the preceding item "x" 1 or more times 匹配到第一个空格为止 param name
+// (\w+) : \w Matches any alphanumeric character from the basic Latin alphabet, including the underscore. Equivalent to [A-Za-z0-9_]. 匹配字母数字下划线字符串 param type
+// ([\S. ]+?) : +? The ? character after the quantifier makes the quantifier "non-greedy". 字母数字点空格多次,非贪婪 不太明白
+// (\w+) 匹配到第一个空格为止 is mandatory
+// "([^"]+)" : 匹配双引号中间的不包含双引号字符的字符串，这里有问题，字符串中可能会有被转义的\",但是匹配到\就结束了
+// (?<!y)x : Matches "x" only if "x" is not preceded by "y" 所以如果要匹配不被转义的",需要写成(?<!\\)",但是regex库不支持这种写法，改用[^\\]"来表示转义双引号
+
+var paramPattern = regexp.MustCompile(`(\S+)\s+(\w+)\s+([\S. ]+?)\s+(\w+)\s+"([\S. ]+[^\\])"`)
+
+// var paramPattern = regexp.MustCompile(`(\S+)\s+(\w+)\s+([\S. ]+?)\s+(\w+)\s+"([^"]+)"`)
 
 func findInSlice(arr []string, target string) bool {
 	for _, str := range arr {

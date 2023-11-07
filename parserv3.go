@@ -349,7 +349,7 @@ func parseSecAttributesV3(context string, lines []string, index *int) (string, *
 			Scheme:       "bearer",
 			BearerFormat: "JWT",
 		}
-		return "bearer", &scheme, nil
+		return "BearerAuth", &scheme, nil
 	case secAPIKeyAttr:
 		search = []string{in, name}
 	case secApplicationAttr, secPasswordAttr:

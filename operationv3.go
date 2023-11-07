@@ -426,7 +426,7 @@ func (o *OperationV3) ParseParamComment(commentLine string, astFile *ast.File) e
 				return err
 			}
 
-			o.fillRequestBody(schema, required, description, true, paramType == "formData")
+			o.fillRequestBodyMultipart(name, schema, required, description, true, paramType == "formData")
 
 			return nil
 
@@ -483,6 +483,40 @@ func (o *OperationV3) fillRequestBody(schema *spec.RefOrSpec[spec.Schema], requi
 
 	for _, value := range o.RequestBody.Spec.Spec.Content {
 		value.Spec.Schema = schema
+	}
+}
+
+func (o *OperationV3) fillRequestBodyMultipart(name string, schema *spec.RefOrSpec[spec.Schema], required bool, description string, primitive, formData bool) {
+	if o.RequestBody == nil {
+		o.RequestBody = spec.NewRequestBodySpec()
+		o.RequestBody.Spec.Spec.Content = make(map[string]*spec.Extendable[spec.MediaType])
+
+		if primitive && !formData {
+			o.RequestBody.Spec.Spec.Content["text/plain"] = spec.NewMediaType()
+		} else if formData {
+			o.RequestBody.Spec.Spec.Content["application/x-www-form-urlencoded"] = spec.NewMediaType()
+		} else {
+			o.RequestBody.Spec.Spec.Content["application/json"] = spec.NewMediaType()
+		}
+	}
+
+	// o.RequestBody.Spec.Spec.Description = description
+	// o.RequestBody.Spec.Spec.Required = required
+	schema.Spec.Description = description
+
+	for _, value := range o.RequestBody.Spec.Spec.Content {
+		// fmt.Println(key)
+		// s, _ := json.Marshal(schema)
+		// fmt.Println(string(s))
+		// value.Spec.Schema = schema
+		// value.Spec.Schema.Spec.AllOf = append(value.Spec.Schema.Spec.AllOf, schema)
+		if value.Spec.Schema.Spec.Properties == nil {
+			// value.Spec.Schema = spec.NewSchemaSpec()
+			value.Spec.Schema.Spec.Properties = map[string]*spec.RefOrSpec[spec.Schema]{}
+			value.Spec.Schema.Spec.Required = []string{}
+		}
+		value.Spec.Schema.Spec.Properties[name] = schema
+		value.Spec.Schema.Spec.Required = append(value.Spec.Schema.Spec.Required, name)
 	}
 }
 
@@ -936,6 +970,15 @@ func (o *OperationV3) parseResponseHeaderAttribute(comment, schemaType string, h
 			}
 
 			header.Spec.Spec.Example = val
+			// header.Spec.Spec.Examples = map[string]*spec.RefOrSpec[spec.Extendable[spec.Example]]{
+			// 	"example": {
+			// 		Spec: &spec.Extendable[spec.Example]{
+			// 			Spec: &spec.Example{
+			// 				Value: val,
+			// 			},
+			// 		},
+			// 	},
+			// }
 			// case schemaExampleTag:
 			// 	err = setSchemaExampleV3(param.Schema.Spec, schemaType, attr)
 			// case extensionsTag:
